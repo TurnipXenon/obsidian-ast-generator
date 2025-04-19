@@ -43,6 +43,8 @@ const en = {
   'Search...': 'Search...',
 
   // Settings.ts
+  'Base folder': 'Base folder',
+  'Base folder where the plugin will scan markdown files to generate AST json\'s for': 'Base folder where the plugin will scan markdown files to generate AST json\'s for',
   'New line trigger': 'New line trigger',
   'Select whether Enter or Shift+Enter creates a new line. The opposite of what you choose will create and complete editing of cards and lists.':
     'Select whether Enter or Shift+Enter creates a new line. The opposite of what you choose will create and complete editing of cards and lists.',

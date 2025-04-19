@@ -101,12 +101,14 @@ function getMdastExtensions(stateManager: StateManager) {
         stateManager.file.path
       );
 
+      const baseFolder = stateManager.getSetting('base-folder');
+      const baseFolderLen = baseFolder ? baseFolder.length + 1 : 0;
+
       node.fileAccessor = {
         target: normalizedPath.root,
         isEmbed: true,
         stats: file?.stat,
-        // todo(turnip): make dynamic
-        basePath: file.path.substring('Blog/'.length),
+        basePath: file.path.substring(baseFolderLen),
       } as FileAccessor;
     }),
     genericWrappedFromMarkdown('wikilink', (text, node) => {
@@ -119,11 +121,12 @@ function getMdastExtensions(stateManager: StateManager) {
         stateManager.file.path
       );
 
+      const baseFolder = stateManager.getSetting('base-folder');
+      const baseFolderLen = baseFolder ? baseFolder.length + 1 : 0;
       node.fileAccessor = {
         target: normalizedPath.root,
         isEmbed: false,
-        // todo(turnip): make dynamic
-        basePath: file.path.substring('Blog/'.length),
+        basePath: file.path.substring(baseFolderLen),
       } as FileAccessor;
 
       if (file) {

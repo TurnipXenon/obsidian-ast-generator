@@ -3,13 +3,14 @@ import { App, TFile, moment } from 'obsidian';
 import { useEffect, useState } from 'preact/compat';
 
 import { KanbanView } from './KanbanView';
-import { KanbanSettings, SettingRetrievers } from './Settings';
+import { KanbanSettings, SettingRetrievers, SettingsManager } from './Settings';
 import { getDefaultDateFormat, getDefaultTimeFormat } from './components/helpers';
 import { Board, BoardTemplate, Item } from './components/types';
 import { ListFormat } from './parsers/List';
 import { BaseFormat, frontmatterKey, shouldRefreshBoard } from './parsers/common';
 import { getTaskStatusDone } from './parsers/helpers/inlineMetadata';
 import { defaultDateTrigger, defaultMetadataPosition, defaultTimeTrigger } from './settingHelpers';
+
 
 export class StateManager {
   onEmpty: () => void;
@@ -26,11 +27,11 @@ export class StateManager {
   file: TFile;
 
   parser: BaseFormat;
+  private settings: SettingsManager;
 
-  constructor(
-    app: App,
-  ) {
+  constructor(app: App, settings: SettingsManager) {
     this.app = app;
+    this.settings = settings;
     this.parser = new ListFormat(this);
   }
 
@@ -277,6 +278,12 @@ export class StateManager {
 
     if (this.state?.data?.settings?.[key] !== undefined) {
       return this.state.data.settings[key];
+    }
+
+    const result = this.settings.getSetting(key, true);
+    if (result !== undefined) {
+      // todo: fix unsafe cast here
+      return result[0] as KanbanSettings[K];
     }
 
     return this.getGlobalSetting(key);

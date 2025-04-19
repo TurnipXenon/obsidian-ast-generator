@@ -1,14 +1,5 @@
 import { around } from 'monkey-around';
-import {
-  MarkdownView,
-  Platform,
-  Plugin,
-  TFile,
-  TFolder,
-  ViewState,
-  WorkspaceLeaf,
-  debounce,
-} from 'obsidian';
+import { MarkdownView, Platform, Plugin, TFile, TFolder, ViewState, WorkspaceLeaf, debounce } from 'obsidian';
 import { render, unmountComponentAtNode, useEffect, useState } from 'preact/compat';
 
 import { createApp } from './DragDropApp';
@@ -20,6 +11,7 @@ import { getParentWindow } from './dnd/util/getWindow';
 import { hasFrontmatterKey } from './helpers';
 import { t } from './lang/helpers';
 import { basicFrontmatter, frontmatterKey } from './parsers/common';
+
 
 interface WindowRegistry {
   viewMap: Map<string, KanbanView>;
@@ -209,6 +201,7 @@ export default class KanbanPlugin extends Plugin {
     return state;
   }
 
+  // todo(turnip): remove addView
   addView(view: KanbanView, data: string, shouldParseData: boolean) {
     const win = view.getWindow();
     const reg = this.windowRegistry.get(win);
@@ -219,17 +212,6 @@ export default class KanbanPlugin extends Plugin {
     }
 
     const file = view.file;
-
-    if (this.stateManagers.has(file)) {
-      this.stateManagers.get(file).registerView(view, data, shouldParseData);
-    } else {
-      this.stateManagers.set(
-        file,
-        new StateManager(
-          this.app,
-        )
-      );
-    }
 
     reg.viewStateReceivers.forEach((fn) => fn(this.getKanbanViews(win)));
   }

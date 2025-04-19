@@ -93,6 +93,8 @@ export interface KanbanSettings {
   'tag-sort'?: TagSort[];
   'time-format'?: string;
   'time-trigger'?: string;
+
+  'base-folder'?: string;
 }
 
 export interface KanbanViewSettings {
@@ -209,6 +211,59 @@ export class SettingsManager {
         ),
       });
     }
+
+    new Setting(contentEl)
+      .setName(t('Base folder'))
+      .setDesc(
+        t("Base folder where the plugin will scan markdown files to generate AST json's for")
+      )
+      .then(
+        createSearchSelect({
+          choices: vaultFolders,
+          key: 'base-folder',
+          local,
+          placeHolderStr: t('Default folder'),
+          manager: this,
+        })
+      );
+
+    new Setting(contentEl)
+      .setName('Generate metadata')
+      .setDesc('Generate *.ast.json')
+      .addButton((btn) =>
+        btn.setButtonText('Button text').onClick((evt) => {
+          const scanningMessage = new Notice('Please wait. Scanning Vault...', 0);
+
+          // todo:
+
+          const { vault } = this.app;
+
+          const baseFolder = this.getSetting('base-folder', true)[0] as string | undefined;
+          Promise.all(
+            vault.getMarkdownFiles().map(async (file) => {
+              // todo(turnip): improve
+              if (!file.path.includes(baseFolder)) {
+                return;
+              }
+
+              // json metadata should contain
+              // - last updated
+              // - creation date
+              // - embeds
+              // - links
+
+              const readFile = await vault.read(file);
+              const stateManager = new StateManager(this.app, this);
+              stateManager.file = file;
+              console.log('Parsing', file.basename);
+              console.log(parseMarkdown(stateManager, readFile));
+            })
+          ).finally(() => {
+            // list of everything that needs to published?
+            scanningMessage.hide();
+          });
+        })
+      );
 
     new Setting(contentEl)
       .setName(t('Display card checkbox'))
@@ -452,23 +507,6 @@ export class SettingsManager {
           warningText: templateWarning,
           local,
           placeHolderStr: t('No template'),
-          manager: this,
-        })
-      );
-
-    new Setting(contentEl)
-      .setName(t('Note folder'))
-      .setDesc(
-        t(
-          'Notes created from Kanban cards will be placed in this folder. If blank, they will be placed in the default location for this vault.'
-        )
-      )
-      .then(
-        createSearchSelect({
-          choices: vaultFolders,
-          key: 'new-note-folder',
-          local,
-          placeHolderStr: t('Default folder'),
           manager: this,
         })
       );
@@ -1494,37 +1532,6 @@ export class SettingsManager {
         });
     });
 
-    new Setting(contentEl)
-      .setName('Apply metadata')
-      .setDesc('Apply, update, and validate *.cma.json')
-      .addButton((btn) =>
-        btn.setButtonText('Button text').onClick((evt) => {
-          const scanningMessage = new Notice('Please wait. Scanning Vault...', 0);
-
-          const { vault, metadataCache } = this.app;
-
-
-          Promise.all(
-            vault.getMarkdownFiles().map((file) => {
-              // json metadata should contain
-              // - last updated
-              // - creation date
-              // - embeds
-              // - links
-
-              return vault.read(file).then((readFile) => {
-                const stateManager = new StateManager(this.app);
-                stateManager.file = file;
-                console.log('Parsing', file.basename)
-                console.log(parseMarkdown(stateManager, readFile));
-              });
-            })
-          ).finally(() => {
-            // list of everything that needs to published?
-            scanningMessage.hide();
-          });
-        })
-      );
     new Setting(contentEl).setName(t('Board view')).then((setting) => {
       let toggleComponent: ToggleComponent;
 
