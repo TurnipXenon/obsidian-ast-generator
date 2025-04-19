@@ -3,7 +3,7 @@ import { MarkdownView, Platform, Plugin, TFile, TFolder, ViewState, WorkspaceLea
 import { render, unmountComponentAtNode, useEffect, useState } from 'preact/compat';
 
 import { createApp } from './DragDropApp';
-import { KanbanView, kanbanIcon, kanbanViewType } from './KanbanView';
+import { KanbanView, astIcon, kanbanViewType } from './KanbanView';
 import { KanbanSettings, KanbanSettingsTab } from './Settings';
 import { StateManager } from './StateManager';
 import { DateSuggest, TimeSuggest } from './components/Editor/suggest';
@@ -136,7 +136,7 @@ export default class KanbanPlugin extends Plugin {
     this.registerDomEvent(window, 'keydown', this.handleShift);
     this.registerDomEvent(window, 'keyup', this.handleShift);
 
-    this.addRibbonIcon(kanbanIcon, t('Create new board'), () => {
+    this.addRibbonIcon(astIcon, t('Generate AST'), () => {
       this.newKanban();
     });
   }
@@ -315,24 +315,7 @@ export default class KanbanPlugin extends Plugin {
   }
 
   async newKanban(folder?: TFolder) {
-    const targetFolder = folder
-      ? folder
-      : this.app.fileManager.getNewFileParent(app.workspace.getActiveFile()?.path || '');
-
-    try {
-      const kanban: TFile = await (app.fileManager as any).createNewMarkdownFile(
-        targetFolder,
-        t('Untitled Kanban')
-      );
-
-      await this.app.vault.modify(kanban, basicFrontmatter);
-      await this.app.workspace.getLeaf().setViewState({
-        type: kanbanViewType,
-        state: { file: kanban.path },
-      });
-    } catch (e) {
-      console.error('Error creating kanban board:', e);
-    }
+    this.settingsTab.settingsManager.generateAst();
   }
 
   registerEvents() {
@@ -350,8 +333,8 @@ export default class KanbanPlugin extends Plugin {
           menu.addItem((item) => {
             item
               .setSection('action-primary')
-              .setTitle(t('New kanban board'))
-              .setIcon(kanbanIcon)
+              .setTitle(t('Generate AST'))
+              .setIcon(astIcon)
               .onClick(() => this.newKanban(file));
           });
           return;
@@ -379,7 +362,7 @@ export default class KanbanPlugin extends Plugin {
             menu.addItem((item) => {
               item
                 .setTitle(t('Open as kanban board'))
-                .setIcon(kanbanIcon)
+                .setIcon(astIcon)
                 .setSection('pane')
                 .onClick(() => {
                   this.kanbanFileModes[(leaf as any).id || file.path] = kanbanViewType;
@@ -400,7 +383,7 @@ export default class KanbanPlugin extends Plugin {
           menu.addItem((item) => {
             item
               .setTitle(t('Open as kanban board'))
-              .setIcon(kanbanIcon)
+              .setIcon(astIcon)
               .setSection('pane')
               .onClick(() => {
                 this.kanbanFileModes[(leaf as any).id || file.path] = kanbanViewType;
@@ -414,7 +397,7 @@ export default class KanbanPlugin extends Plugin {
             menu.addItem((item) => {
               item
                 .setTitle(t('Open as markdown'))
-                .setIcon(kanbanIcon)
+                .setIcon(astIcon)
                 .setSection('pane')
                 .onClick(() => {
                   this.kanbanFileModes[(leaf as any).id || file.path] = 'markdown';
@@ -552,8 +535,8 @@ export default class KanbanPlugin extends Plugin {
 
   registerCommands() {
     this.addCommand({
-      id: 'create-new-kanban-board',
-      name: t('Create new board'),
+      id: 'generate-ast',
+      name: t('Generate AST'),
       callback: () => this.newKanban(),
     });
 
