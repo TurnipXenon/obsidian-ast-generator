@@ -36,7 +36,7 @@ import { getParentWindow } from './dnd/util/getWindow';
 import { t } from './lang/helpers';
 import KanbanPlugin from './main';
 import { frontmatterKey } from './parsers/common';
-import { parseMarkdown } from './parsers/parseMarkdown';
+import { parseFragment, parseMarkdown } from './parsers/parseMarkdown';
 import {
   createSearchSelect,
   defaultDateTrigger,
@@ -1547,8 +1547,7 @@ export class SettingsManager {
     this.cleanupFns = [];
   }
 
-  private kebabize = (str: string) =>
-    str.replace(' ', '-').toLowerCase();
+  private kebabize = (str: string) => str.replace(' ', '-').toLowerCase();
 
   generateAst() {
     const scanningMessage = new Notice('Please wait. Scanning Vault...', 0);
@@ -1564,9 +1563,16 @@ export class SettingsManager {
       }
     });
 
-    class ExportedFiles extends TFile {
+    interface PathSlug {
+      path: string;
+      slug: string;
+      preview: string;
+    }
+
+    class ExportedFiles extends TFile implements PathSlug {
       tags: string[];
       slug: string;
+      preview: string;
     }
 
     const exportedFiles: ExportedFiles[] = [];
@@ -1589,11 +1595,24 @@ export class SettingsManager {
             const ast = parseMarkdown(stateManager, readFile);
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { vault: _v, parent, saving, deleted, ...wantedProps } = file as any;
-            wantedProps.path = `${file.path.substring(0, file.path.length - 3)}.ast.json`;
+            const startLen = baseFolder.length > 0 ? baseFolder.length + 1 : 0;
+            const savePath = `${file.path.substring(0, file.path.length - 3)}.ast.json`;
+            wantedProps.path = savePath.substring(startLen);
+
+            let preview = undefined;
+            if (metadata.frontmatter?.preview) {
+              const fragment = parseFragment(stateManager, metadata.frontmatter.preview);
+              const children = (fragment.children[0] as any).children;
+              if (children) {
+                preview = children[0].fileAccessor.basePath;
+              }
+            }
+
             const fileData = {
               ...wantedProps,
               tags: ast.frontmatter?.tags ?? [],
-              slug: ast.frontmatter?.aliases?.[0] ?? this.kebabize(file.basename),
+              slug: ast.frontmatter?.slug ?? this.kebabize(file.basename),
+              preview,
             };
             const jsonFile = {
               ...fileData,
@@ -1601,7 +1620,7 @@ export class SettingsManager {
             };
             exportedFiles.push(fileData);
             return vault.create(
-              wantedProps.path,
+              savePath,
               JSON.stringify(
                 jsonFile,
                 (key, value) => {
@@ -1625,11 +1644,6 @@ export class SettingsManager {
         return vault.delete(tfile);
       })
       .then(() => {
-        interface PathSlug {
-          path: string;
-          slug: string;
-        }
-
         const tagMap = new Map<string, PathSlug[] | undefined>();
         exportedFiles.sort((a, b) => b.stat.mtime - a.stat.mtime);
         exportedFiles.forEach((file) => {
@@ -1641,6 +1655,7 @@ export class SettingsManager {
             tagCollection.push({
               path: file.path,
               slug: file.slug,
+              preview: file.preview,
             });
             tagMap.set(tag, tagCollection);
           });
