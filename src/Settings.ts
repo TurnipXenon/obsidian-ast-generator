@@ -231,37 +231,66 @@ export class SettingsManager {
       .setName('Generate metadata')
       .setDesc('Generate *.ast.json')
       .addButton((btn) =>
-        btn.setButtonText('Button text').onClick((evt) => {
+        btn.setButtonText('Generate').onClick(() => {
           const scanningMessage = new Notice('Please wait. Scanning Vault...', 0);
 
-          // todo:
-
           const { vault } = this.app;
+          // todo: delete all ast.json files
+          const allFiles = vault.getFiles();
 
-          const baseFolder = this.getSetting('base-folder', true)[0] as string | undefined;
-          Promise.all(
-            vault.getMarkdownFiles().map(async (file) => {
-              // todo(turnip): improve
-              if (!file.path.includes(baseFolder)) {
-                return;
-              }
+          const promises: Promise<void>[] = [];
 
-              // json metadata should contain
-              // - last updated
-              // - creation date
-              // - embeds
-              // - links
-
-              const readFile = await vault.read(file);
-              const stateManager = new StateManager(this.app, this);
-              stateManager.file = file;
-              console.log('Parsing', file.basename);
-              console.log(parseMarkdown(stateManager, readFile));
-            })
-          ).finally(() => {
-            // list of everything that needs to published?
-            scanningMessage.hide();
+          allFiles.forEach((file) => {
+            if (file.name.endsWith('.ast.json')) {
+              promises.push(vault.delete(file));
+            }
           });
+
+          Promise.all(promises)
+            .then(() => {
+              const baseFolder = this.getSetting('base-folder', true)[0] as string | undefined;
+              return Promise.all(
+                vault.getMarkdownFiles().map(async (file) => {
+                  // todo(turnip): improve
+                  if (!file.path.includes(baseFolder)) {
+                    return;
+                  }
+
+                  const readFile = await vault.read(file);
+                  const stateManager = new StateManager(this.app, this);
+                  stateManager.file = file;
+                  const ast = parseMarkdown(stateManager, readFile);
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  const { vault: _v, parent, saving, deleted, ...wantedProps } =  (file as any);
+                  const jsonFile = {
+                    ...wantedProps,
+                    ast,
+                  };
+                  return vault.create(
+                    `${file.path.substring(0, file.path.length - 3)}.ast.json`,
+                    JSON.stringify(
+                      jsonFile,
+                      (key, value) => {
+                        if (['position', 'extension'].includes(key)) {
+                          return undefined;
+                        }
+                        return value;
+                      },
+                      2
+                    )
+                  );
+                })
+              );
+            })
+            .then(() => new Notice('AST JSONs generated'))
+            .catch(err => {
+              console.error(err);
+              new Notice('Error generating AST JSONs');
+            })
+            .finally(() => {
+              // list of everything that needs to published?
+              scanningMessage.hide();
+            });
         })
       );
 
