@@ -6,6 +6,7 @@ import {
   Notice,
   PluginSettingTab,
   Setting,
+  TFile,
   ToggleComponent,
 } from 'obsidian';
 
@@ -230,9 +231,7 @@ export class SettingsManager {
     new Setting(contentEl)
       .setName('Generate metadata')
       .setDesc('Generate *.ast.json')
-      .addButton((btn) =>
-        btn.setButtonText('Generate').onClick(this.generateAst)
-      );
+      .addButton((btn) => btn.setButtonText('Generate').onClick(this.generateAst));
 
     new Setting(contentEl)
       .setName(t('Display card checkbox'))
@@ -1548,11 +1547,13 @@ export class SettingsManager {
     this.cleanupFns = [];
   }
 
+  private kebabize = (str: string) =>
+    str.replace(' ', '-').toLowerCase();
+
   generateAst() {
     const scanningMessage = new Notice('Please wait. Scanning Vault...', 0);
 
-    const { vault } = this.app;
-    // todo: delete all ast.json files
+    const { vault, metadataCache } = this.app;
     const allFiles = vault.getFiles();
 
     const promises: Promise<void>[] = [];
@@ -1563,9 +1564,17 @@ export class SettingsManager {
       }
     });
 
+    class ExportedFiles extends TFile {
+      tags: string[];
+      slug: string;
+    }
+
+    const exportedFiles: ExportedFiles[] = [];
+    const baseFolder = this.getSetting('base-folder', true)[0] as string | undefined;
+    const metadataPath = `${baseFolder}/main.meta.json`;
+
     Promise.all(promises)
       .then(() => {
-        const baseFolder = this.getSetting('base-folder', true)[0] as string | undefined;
         return Promise.all(
           vault.getMarkdownFiles().map(async (file) => {
             // todo(turnip): improve
@@ -1573,18 +1582,26 @@ export class SettingsManager {
               return;
             }
 
+            const metadata = metadataCache.getFileCache(file);
             const readFile = await vault.read(file);
             const stateManager = new StateManager(this.app, this);
             stateManager.file = file;
             const ast = parseMarkdown(stateManager, readFile);
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { vault: _v, parent, saving, deleted, ...wantedProps } =  (file as any);
-            const jsonFile = {
+            const { vault: _v, parent, saving, deleted, ...wantedProps } = file as any;
+            wantedProps.path = `${file.path.substring(0, file.path.length - 3)}.ast.json`;
+            const fileData = {
               ...wantedProps,
+              tags: ast.frontmatter?.tags ?? [],
+              slug: ast.frontmatter?.aliases?.[0] ?? this.kebabize(file.basename),
+            };
+            const jsonFile = {
+              ...fileData,
               ast,
             };
+            exportedFiles.push(fileData);
             return vault.create(
-              `${file.path.substring(0, file.path.length - 3)}.ast.json`,
+              wantedProps.path,
               JSON.stringify(
                 jsonFile,
                 (key, value) => {
@@ -1599,8 +1616,53 @@ export class SettingsManager {
           })
         );
       })
+      .then(() => {
+        const tfile = vault.getFileByPath(metadataPath);
+        if (tfile === null) {
+          return;
+        }
+
+        return vault.delete(tfile);
+      })
+      .then(() => {
+        interface PathSlug {
+          path: string;
+          slug: string;
+        }
+
+        const tagMap = new Map<string, PathSlug[] | undefined>();
+        exportedFiles.sort((a, b) => b.stat.mtime - a.stat.mtime);
+        exportedFiles.forEach((file) => {
+          file.tags.forEach((tag) => {
+            let tagCollection = tagMap.get(tag);
+            if (tagCollection === undefined) {
+              tagCollection = [];
+            }
+            tagCollection.push({
+              path: file.path,
+              slug: file.slug,
+            });
+            tagMap.set(tag, tagCollection);
+          });
+        });
+
+        const tags: { name: string; entries: PathSlug[] }[] = [];
+        tagMap.forEach((value, key) => {
+          tags.push({
+            name: key,
+            entries: value,
+          });
+        });
+
+        const mainMeta = {
+          files: exportedFiles,
+          tags,
+        };
+
+        return vault.create(metadataPath, JSON.stringify(mainMeta, undefined, 2));
+      })
       .then(() => new Notice('AST JSONs generated'))
-      .catch(err => {
+      .catch((err) => {
         console.error(err);
         new Notice('Error generating AST JSONs');
       })
