@@ -227,10 +227,6 @@ export default class KanbanPlugin extends Plugin {
         file,
         new StateManager(
           this.app,
-          view,
-          data,
-          () => this.stateManagers.delete(file),
-          () => this.settings
         )
       );
     }

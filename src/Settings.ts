@@ -3,12 +3,14 @@ import {
   App,
   DropdownComponent,
   Modal,
+  Notice,
   PluginSettingTab,
   Setting,
   ToggleComponent,
 } from 'obsidian';
 
 import { KanbanView } from './KanbanView';
+import { StateManager } from './StateManager';
 import {
   c,
   generateInstanceId,
@@ -33,6 +35,7 @@ import { getParentWindow } from './dnd/util/getWindow';
 import { t } from './lang/helpers';
 import KanbanPlugin from './main';
 import { frontmatterKey } from './parsers/common';
+import { parseMarkdown } from './parsers/parseMarkdown';
 import {
   createSearchSelect,
   defaultDateTrigger,
@@ -1491,6 +1494,37 @@ export class SettingsManager {
         });
     });
 
+    new Setting(contentEl)
+      .setName('Apply metadata')
+      .setDesc('Apply, update, and validate *.cma.json')
+      .addButton((btn) =>
+        btn.setButtonText('Button text').onClick((evt) => {
+          const scanningMessage = new Notice('Please wait. Scanning Vault...', 0);
+
+          const { vault, metadataCache } = this.app;
+
+
+          Promise.all(
+            vault.getMarkdownFiles().map((file) => {
+              // json metadata should contain
+              // - last updated
+              // - creation date
+              // - embeds
+              // - links
+
+              return vault.read(file).then((readFile) => {
+                const stateManager = new StateManager(this.app);
+                stateManager.file = file;
+                console.log('Parsing', file.basename)
+                console.log(parseMarkdown(stateManager, readFile));
+              });
+            })
+          ).finally(() => {
+            // list of everything that needs to published?
+            scanningMessage.hide();
+          });
+        })
+      );
     new Setting(contentEl).setName(t('Board view')).then((setting) => {
       let toggleComponent: ToggleComponent;
 

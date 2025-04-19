@@ -24,7 +24,9 @@ function extractFrontmatter(md: string) {
         openDashCount++;
         continue;
       } else {
-        throw new Error('Error parsing frontmatter');
+        console.warn('extractFrontmatter: not sure about here but we\'ll ignore this error for now');
+        return {};
+        // throw new Error('Error parsing frontmatter');
       }
     }
 
@@ -34,6 +36,8 @@ function extractFrontmatter(md: string) {
       return parseYaml(md.slice(frontmatterStart, i - 1).trim());
     }
   }
+
+  return {};
 }
 
 function extractSettingsFooter(md: string) {
@@ -62,12 +66,9 @@ function extractSettingsFooter(md: string) {
   }
 }
 
-function getExtensions(stateManager: StateManager) {
+function getExtensions() {
   return [
     gfmTaskListItem,
-    genericWrappedExtension('date', `${stateManager.getSetting('date-trigger')}{`, '}'),
-    genericWrappedExtension('dateLink', `${stateManager.getSetting('date-trigger')}[[`, ']]'),
-    genericWrappedExtension('time', `${stateManager.getSetting('time-trigger')}{`, '}'),
     genericWrappedExtension('embedWikilink', '![[', ']]'),
     genericWrappedExtension('wikilink', '[[', ']]'),
     tagExtension(),
@@ -104,6 +105,8 @@ function getMdastExtensions(stateManager: StateManager) {
         target: normalizedPath.root,
         isEmbed: true,
         stats: file?.stat,
+        // todo(turnip): make dynamic
+        basePath: file.path.substring('Blog/'.length),
       } as FileAccessor;
     }),
     genericWrappedFromMarkdown('wikilink', (text, node) => {
@@ -119,6 +122,8 @@ function getMdastExtensions(stateManager: StateManager) {
       node.fileAccessor = {
         target: normalizedPath.root,
         isEmbed: false,
+        // todo(turnip): make dynamic
+        basePath: file.path.substring('Blog/'.length),
       } as FileAccessor;
 
       if (file) {
@@ -188,7 +193,7 @@ export function parseMarkdown(stateManager: StateManager, md: string) {
     settings,
     frontmatter: fileFrontmatter,
     ast: fromMarkdown(md, {
-      extensions: [frontmatter(['yaml']), ...getExtensions(stateManager)],
+      extensions: [frontmatter(['yaml']), ...getExtensions()],
       mdastExtensions: [frontmatterFromMarkdown(['yaml']), ...getMdastExtensions(stateManager)],
     }),
   };
@@ -196,7 +201,7 @@ export function parseMarkdown(stateManager: StateManager, md: string) {
 
 export function parseFragment(stateManager: StateManager, md: string) {
   return fromMarkdown(md, {
-    extensions: getExtensions(stateManager),
+    extensions: getExtensions(),
     mdastExtensions: getMdastExtensions(stateManager),
   });
 }

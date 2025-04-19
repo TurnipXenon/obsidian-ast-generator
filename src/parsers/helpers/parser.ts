@@ -5,6 +5,7 @@ export interface FileAccessor {
   isEmbed: boolean;
   target: string;
   stats?: Stat;
+  basePath?: string;
 }
 
 export function markRangeForDeletion(str: string, range: { start: number; end: number }): string {

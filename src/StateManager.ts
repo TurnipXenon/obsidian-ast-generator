@@ -29,18 +29,9 @@ export class StateManager {
 
   constructor(
     app: App,
-    initialView: KanbanView,
-    initialData: string,
-    onEmpty: () => void,
-    getGlobalSettings: () => KanbanSettings
   ) {
     this.app = app;
-    this.file = initialView.file;
-    this.onEmpty = onEmpty;
-    this.getGlobalSettings = getGlobalSettings;
     this.parser = new ListFormat(this);
-
-    this.registerView(initialView, initialData, true);
   }
 
   getAView(): KanbanView {
@@ -292,12 +283,6 @@ export class StateManager {
   };
 
   getGlobalSetting = <K extends keyof KanbanSettings>(key: K): KanbanSettings[K] => {
-    const globalSettings = this.getGlobalSettings();
-
-    if (globalSettings?.[key] !== undefined) {
-      return globalSettings[key];
-    }
-
     return null;
   };
 
