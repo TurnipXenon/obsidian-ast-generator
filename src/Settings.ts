@@ -33,6 +33,7 @@ import {
   TagSortSettingTemplate,
 } from './components/types';
 import { getParentWindow } from './dnd/util/getWindow';
+import { kebabize } from './helpers/util';
 import { t } from './lang/helpers';
 import KanbanPlugin from './main';
 import { frontmatterKey } from './parsers/common';
@@ -48,7 +49,6 @@ import { cleanUpDateSettings, renderDateSettings } from './settings/DateColorSet
 import { cleanupMetadataSettings, renderMetadataSettings } from './settings/MetadataSettings';
 import { cleanUpTagSettings, renderTagSettings } from './settings/TagColorSettings';
 import { cleanUpTagSortSettings, renderTagSortSettings } from './settings/TagSortSettings';
-import { kebabize } from './helpers/util';
 
 const numberRegEx = /^\d+(?:\.\d+)?$/;
 
@@ -1583,7 +1583,8 @@ export class SettingsManager {
         return Promise.all(
           vault.getMarkdownFiles().map(async (file) => {
             // todo(turnip): improve
-            if (!file.path.includes(baseFolder)) {
+            console.log(file.path);
+            if (!file.path.startsWith(`${baseFolder}/`)) {
               return;
             }
 
@@ -1609,6 +1610,7 @@ export class SettingsManager {
 
             const fileData = {
               ...wantedProps,
+              ...ast.frontmatter,
               tags: ast.frontmatter?.tags ?? [],
               slug: ast.frontmatter?.slug ?? kebabize(file.basename),
               preview,
@@ -1677,8 +1679,8 @@ export class SettingsManager {
       })
       .then(() => new Notice('AST JSONs generated'))
       .catch((err) => {
-        console.error(err);
         new Notice('Error generating AST JSONs');
+        console.error(err);
       })
       .finally(() => {
         // list of everything that needs to published?
