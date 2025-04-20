@@ -13,6 +13,7 @@ import { internalMarkdownLinks } from './extensions/internalMarkdownLink';
 import { tagExtension, tagFromMarkdown } from './extensions/tag';
 import { gfmTaskListItem, gfmTaskListItemFromMarkdown } from './extensions/taskList';
 import { FileAccessor } from './helpers/parser';
+import { kebabize } from '../helpers/util';
 
 function extractFrontmatter(md: string) {
   let frontmatterStart = -1;
@@ -24,7 +25,7 @@ function extractFrontmatter(md: string) {
         openDashCount++;
         continue;
       } else {
-        console.warn('extractFrontmatter: not sure about here but we\'ll ignore this error for now');
+        console.warn("extractFrontmatter: not sure about here but we'll ignore this error for now");
         return {};
         // throw new Error('Error parsing frontmatter');
       }
@@ -127,6 +128,8 @@ function getMdastExtensions(stateManager: StateManager) {
         target: normalizedPath.root,
         isEmbed: false,
         basePath: file.path.substring(baseFolderLen),
+        // todo: get slug if page has slug
+        slug: kebabize(file.basename)
       } as FileAccessor;
 
       if (file) {

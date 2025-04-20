@@ -78,3 +78,5 @@ export class PromiseQueue {
     this.onComplete();
   }
 }
+
+export const kebabize = (str: string) => str.replace(' ', '-').toLowerCase();

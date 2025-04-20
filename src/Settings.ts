@@ -48,6 +48,7 @@ import { cleanUpDateSettings, renderDateSettings } from './settings/DateColorSet
 import { cleanupMetadataSettings, renderMetadataSettings } from './settings/MetadataSettings';
 import { cleanUpTagSettings, renderTagSettings } from './settings/TagColorSettings';
 import { cleanUpTagSortSettings, renderTagSortSettings } from './settings/TagSortSettings';
+import { kebabize } from './helpers/util';
 
 const numberRegEx = /^\d+(?:\.\d+)?$/;
 
@@ -1547,8 +1548,6 @@ export class SettingsManager {
     this.cleanupFns = [];
   }
 
-  private kebabize = (str: string) => str.replace(' ', '-').toLowerCase();
-
   generateAst() {
     const scanningMessage = new Notice('Please wait. Scanning Vault...', 0);
 
@@ -1611,7 +1610,7 @@ export class SettingsManager {
             const fileData = {
               ...wantedProps,
               tags: ast.frontmatter?.tags ?? [],
-              slug: ast.frontmatter?.slug ?? this.kebabize(file.basename),
+              slug: ast.frontmatter?.slug ?? kebabize(file.basename),
               preview,
             };
             const jsonFile = {
