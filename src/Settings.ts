@@ -162,6 +162,18 @@ export interface SettingsManagerConfig {
   onSettingsChange: (newSettings: KanbanSettings) => void;
 }
 
+interface PathSlug {
+  path: string;
+  slug: string;
+  preview: string;
+}
+
+class ExportedFiles extends TFile implements PathSlug {
+  tags: string[];
+  slug: string;
+  preview: string;
+}
+
 export class SettingsManager {
   win: Window;
   app: App;
@@ -1551,91 +1563,90 @@ export class SettingsManager {
   generateAst() {
     const scanningMessage = new Notice('Please wait. Scanning Vault...', 0);
 
-    const { vault, metadataCache } = this.app;
+    const { vault } = this.app;
     const allFiles = vault.getFiles();
-
     const promises: Promise<void>[] = [];
-
     allFiles.forEach((file) => {
       if (file.name.endsWith('.ast.json')) {
         promises.push(vault.delete(file));
       }
     });
 
-    interface PathSlug {
-      path: string;
-      slug: string;
-      preview: string;
-    }
-
-    class ExportedFiles extends TFile implements PathSlug {
-      tags: string[];
-      slug: string;
-      preview: string;
-    }
-
-    const exportedFiles: ExportedFiles[] = [];
     const baseFolder = this.getSetting('base-folder', true)[0] as string | undefined;
-    const metadataPath = `${baseFolder}/main.meta.json`;
 
     Promise.all(promises)
-      .then(() => {
-        return Promise.all(
-          vault.getMarkdownFiles().map(async (file) => {
-            // todo(turnip): improve
-            console.log(file.path);
-            if (!file.path.startsWith(`${baseFolder}/`)) {
-              return;
-            }
+      .then(() => this._generateAst(baseFolder))
+      .catch((err) => {
+        new Notice('Error generating AST JSONs');
+        console.error(err);
+      })
+      .finally(() => {
+        // list of everything that needs to published?
+        scanningMessage.hide();
+      });
+  }
 
-            const metadata = metadataCache.getFileCache(file);
-            const readFile = await vault.read(file);
-            const stateManager = new StateManager(this.app, this);
-            stateManager.file = file;
-            const ast = parseMarkdown(stateManager, readFile);
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { vault: _v, parent, saving, deleted, ...wantedProps } = file as any;
-            const startLen = baseFolder.length > 0 ? baseFolder.length + 1 : 0;
-            const savePath = `${file.path.substring(0, file.path.length - 3)}.ast.json`;
-            wantedProps.path = savePath.substring(startLen);
+  private async _generateAst(baseFolder: string) {
+    const { vault, metadataCache } = this.app;
 
-            let preview = undefined;
-            if (metadata.frontmatter?.preview) {
-              const fragment = parseFragment(stateManager, metadata.frontmatter.preview);
-              const children = (fragment.children[0] as any).children;
-              if (children) {
-                preview = children[0].fileAccessor.basePath;
+    const exportedFiles: ExportedFiles[] = [];
+    const metadataPath = `${baseFolder}/main.meta.json`;
+
+    return Promise.all(
+      vault.getMarkdownFiles().map(async (file) => {
+        // todo(turnip): improve
+        console.log(file.path);
+        if (!file.path.startsWith(`${baseFolder}/`)) {
+          return;
+        }
+
+        const metadata = metadataCache.getFileCache(file);
+        const readFile = await vault.read(file);
+        const stateManager = new StateManager(this.app, this);
+        stateManager.file = file;
+        const ast = parseMarkdown(stateManager, readFile);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { vault: _v, parent, saving, deleted, ...wantedProps } = file as any;
+        const startLen = baseFolder.length > 0 ? baseFolder.length + 1 : 0;
+        const savePath = `${file.path.substring(0, file.path.length - 3)}.ast.json`;
+        wantedProps.path = savePath.substring(startLen);
+
+        let preview = undefined;
+        if (metadata.frontmatter?.preview) {
+          const fragment = parseFragment(stateManager, metadata.frontmatter.preview);
+          const children = (fragment.children[0] as any).children;
+          if (children) {
+            preview = children[0].fileAccessor.basePath;
+          }
+        }
+
+        const fileData = {
+          ...wantedProps,
+          ...ast.frontmatter,
+          tags: ast.frontmatter?.tags ?? [],
+          slug: ast.frontmatter?.slug ?? kebabize(file.basename),
+          preview,
+        };
+        const jsonFile = {
+          ...fileData,
+          ast,
+        };
+        exportedFiles.push(fileData);
+        return vault.create(
+          savePath,
+          JSON.stringify(
+            jsonFile,
+            (key, value) => {
+              if (['position', 'extension'].includes(key)) {
+                return undefined;
               }
-            }
-
-            const fileData = {
-              ...wantedProps,
-              ...ast.frontmatter,
-              tags: ast.frontmatter?.tags ?? [],
-              slug: ast.frontmatter?.slug ?? kebabize(file.basename),
-              preview,
-            };
-            const jsonFile = {
-              ...fileData,
-              ast,
-            };
-            exportedFiles.push(fileData);
-            return vault.create(
-              savePath,
-              JSON.stringify(
-                jsonFile,
-                (key, value) => {
-                  if (['position', 'extension'].includes(key)) {
-                    return undefined;
-                  }
-                  return value;
-                },
-                2
-              )
-            );
-          })
+              return value;
+            },
+            2
+          )
         );
       })
+    )
       .then(() => {
         const tfile = vault.getFileByPath(metadataPath);
         if (tfile === null) {
@@ -1677,15 +1688,7 @@ export class SettingsManager {
 
         return vault.create(metadataPath, JSON.stringify(mainMeta, undefined, 2));
       })
-      .then(() => new Notice('AST JSONs generated'))
-      .catch((err) => {
-        new Notice('Error generating AST JSONs');
-        console.error(err);
-      })
-      .finally(() => {
-        // list of everything that needs to published?
-        scanningMessage.hide();
-      });
+      .then(() => new Notice('AST JSONs generated'));
   }
 }
 
