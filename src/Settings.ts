@@ -97,6 +97,7 @@ export interface KanbanSettings {
   'time-trigger'?: string;
 
   'base-folder'?: string;
+  'base-folder-2'?: string;
 }
 
 export interface KanbanViewSettings {
@@ -237,6 +238,21 @@ export class SettingsManager {
           key: 'base-folder',
           local,
           placeHolderStr: t('Default folder'),
+          manager: this,
+        })
+      );
+
+    new Setting(contentEl)
+      .setName(t('2nd optional folder'))
+      .setDesc(
+        t("2nd folder where the plugin will scan markdown files to generate AST json's for")
+      )
+      .then(
+        createSearchSelect({
+          choices: vaultFolders,
+          key: 'base-folder-2',
+          local,
+          placeHolderStr: t('2nd optional folder'),
           manager: this,
         })
       );
@@ -1573,9 +1589,12 @@ export class SettingsManager {
     });
 
     const baseFolder = this.getSetting('base-folder', true)[0] as string | undefined;
+    const baseFolder2 = this.getSetting('base-folder-2', true)[0] as string | undefined;
 
     Promise.all(promises)
       .then(() => this._generateAst(baseFolder))
+      .then(() => this._generateAst(baseFolder2))
+      .then(() => new Notice('AST JSONs generated'))
       .catch((err) => {
         new Notice('Error generating AST JSONs');
         console.error(err);
@@ -1687,8 +1706,7 @@ export class SettingsManager {
         };
 
         return vault.create(metadataPath, JSON.stringify(mainMeta, undefined, 2));
-      })
-      .then(() => new Notice('AST JSONs generated'));
+      });
   }
 }
 
