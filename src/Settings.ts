@@ -7,6 +7,7 @@ import {
   PluginSettingTab,
   Setting,
   TFile,
+  TextComponent,
   ToggleComponent,
 } from 'obsidian';
 
@@ -97,6 +98,10 @@ export interface KanbanSettings {
   'time-trigger'?: string;
 
   'base-folder'?: string;
+  'project-name'?: string;
+  'repo-name'?: string;
+  'org-name'?: string;
+  'secret-key'?: string;
 }
 
 export interface KanbanViewSettings {
@@ -174,6 +179,10 @@ class ExportedFiles extends TFile implements PathSlug {
   preview: string;
 }
 
+// todo(turnip): very dangerous syncing for secret key. figure out how to hide it
+const vercelStringFields = ['project-name', 'repo-name', 'org-name', 'secret-key'] as const;
+type StringOnlyFields = typeof vercelStringFields[number];
+
 export class SettingsManager {
   win: Window;
   app: App;
@@ -245,6 +254,49 @@ export class SettingsManager {
       .setName('Generate metadata')
       .setDesc('Generate *.ast.json')
       .addButton((btn) => btn.setButtonText('Generate').onClick(this.generateAst));
+
+    const textFields = (fieldName: StringOnlyFields) => {
+      return (text: TextComponent) => {
+        const [value, globalValue] = this.getSetting(fieldName, local);
+
+        text.inputEl.setAttr('type', 'string');
+        text.inputEl.placeholder = fieldName;
+        text.inputEl.value = value ? value.toString() : '';
+
+        text.onChange((val: string) => {
+          if (val) {
+            text.inputEl.removeClass('error');
+
+            const params = {} as Record<StringOnlyFields, { $set: string }>;
+            params[fieldName] = {
+              $set: val,
+            };
+            this.applySettingsUpdate(params);
+
+            return;
+          }
+
+          this.applySettingsUpdate({
+            $unset: [fieldName],
+          });
+        });
+      };
+    };
+
+    new Setting(contentEl)
+      .setName(t('List width'))
+      .setDesc(t('Enter a number to set the list width in pixels.'))
+      .addText(textFields('org-name'));
+
+    new Setting(contentEl)
+      .setName(t('List width'))
+      .setDesc(t('Enter a number to set the list width in pixels.'))
+      .addText(textFields('project-name'));
+
+    new Setting(contentEl)
+      .setName(t('List width'))
+      .setDesc(t('Enter a number to set the list width in pixels.'))
+      .addText(textFields('repo-name'));
 
     new Setting(contentEl)
       .setName(t('Display card checkbox'))

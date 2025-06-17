@@ -3,6 +3,7 @@
 const en = {
   // main.ts
   'Generate AST': 'Generate AST',
+  'Publish changes': 'Publish changes',
   'Open as kanban board': 'Open as kanban board',
   'Create new board': 'Create new board',
   'Archive completed cards in active board': 'Archive completed cards in active board',

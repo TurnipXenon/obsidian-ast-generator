@@ -3,7 +3,7 @@ import { MarkdownView, Platform, Plugin, TFile, TFolder, ViewState, WorkspaceLea
 import { render, unmountComponentAtNode, useEffect, useState } from 'preact/compat';
 
 import { createApp } from './DragDropApp';
-import { KanbanView, astIcon, kanbanViewType } from './KanbanView';
+import { KanbanView, astIcon, kanbanViewType, publishIcon } from './KanbanView';
 import { KanbanSettings, KanbanSettingsTab } from './Settings';
 import { StateManager } from './StateManager';
 import { DateSuggest, TimeSuggest } from './components/Editor/suggest';
@@ -11,6 +11,7 @@ import { getParentWindow } from './dnd/util/getWindow';
 import { hasFrontmatterKey } from './helpers';
 import { t } from './lang/helpers';
 import { basicFrontmatter, frontmatterKey } from './parsers/common';
+import { publishToVercel } from './vercelAutoDeploy';
 
 
 interface WindowRegistry {
@@ -137,7 +138,12 @@ export default class KanbanPlugin extends Plugin {
     this.registerDomEvent(window, 'keyup', this.handleShift);
 
     this.addRibbonIcon(astIcon, t('Generate AST'), () => {
+      console.log('Working here 2')
       this.newKanban();
+    });
+
+    this.addRibbonIcon(publishIcon, t('Publish changes'), () => {
+      this.publishChanges();
     });
   }
 
@@ -316,6 +322,11 @@ export default class KanbanPlugin extends Plugin {
 
   async newKanban(folder?: TFolder) {
     this.settingsTab.settingsManager.generateAst();
+  }
+
+  async publishChanges(folder?: TFolder) {
+    console.log('publishing changes...')
+    publishToVercel()
   }
 
   registerEvents() {

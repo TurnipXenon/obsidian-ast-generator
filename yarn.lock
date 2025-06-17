@@ -959,6 +959,11 @@
   resolved "https://registry.yarnpkg.com/@ungap/structured-clone/-/structured-clone-1.2.0.tgz#756641adb587851b5ccb3e095daf27ae581c8406"
   integrity sha512-zuVdFrMJiuCDQUMCzQaD6KL28MjnqqN8XnAqiEq9PNm/hCPTSGfrXCOfwj1ow4LFb/tNymJPwsNbVePc1xFqrQ==
 
+"@vercel/sdk@^1.8.3":
+  version "1.8.3"
+  resolved "https://registry.yarnpkg.com/@vercel/sdk/-/sdk-1.8.3.tgz#e3791f6a4e3502fb7940bb52bab7be56979b5204"
+  integrity sha512-s3YGbZ/Bd3t5ZAOvWe4AsgpzMMbWMhktu3XxFRyr2aGguRUC91UbiggqsldyOojS8u7Lcixz+Ns59w6cGV0hgg==
+
 "@zephraph/procedure@^0.2.0":
   version "0.2.1"
   resolved "https://registry.yarnpkg.com/@zephraph/procedure/-/procedure-0.2.1.tgz#0d2ff7e396b643338c8959b321eebc023072c9e4"
@@ -4723,6 +4728,11 @@ yocto-queue@^1.0.0:
   version "1.2.1"
   resolved "https://registry.yarnpkg.com/yocto-queue/-/yocto-queue-1.2.1.tgz#36d7c4739f775b3cbc28e6136e21aa057adec418"
   integrity sha512-AyeEbWOu/TAXdxlV9wmGcR0+yh2j3vYPGOECcIj2S7MkrLyC7ne+oye2BKTItt0ii2PHk4cDy+95+LshzbXnGg==
+
+zod@^3.25.67:
+  version "3.25.67"
+  resolved "https://registry.yarnpkg.com/zod/-/zod-3.25.67.tgz#62987e4078e2ab0f63b491ef0c4f33df24236da8"
+  integrity sha512-idA2YXwpCdqUSKRCACDE6ItZD9TZzy3OZMtpfLoh6oPR47lipysRrJfjzMqFxQ3uJuUPyUeWe1r9vLH33xO/Qw==
 
 zwitch@^2.0.0:
   version "2.0.4"

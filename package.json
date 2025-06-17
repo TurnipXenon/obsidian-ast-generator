@@ -49,6 +49,7 @@
   "dependencies": {
     "@tanstack/match-sorter-utils": "^8.15.1",
     "@tanstack/react-table": "^8.11.2",
+    "@vercel/sdk": "^1.8.3",
     "animated-scroll-to": "^2.2.0",
     "box-intersect": "^1.0.2",
     "choices.js": "9.0.1",
@@ -78,7 +79,8 @@
     "react-dom": "npm:@preact/compat",
     "react-fast-compare": "^3.2.2",
     "rrule": "^2.8.1",
-    "unist-util-visit": "^4.1.0"
+    "unist-util-visit": "^4.1.0",
+    "zod": "^3.25.67"
   },
   "importSort": {
     ".js, .ts, .tsx": {
