@@ -42,7 +42,7 @@ class PublishModal extends Modal {
       row.style.gap = '8px';
       row.style.marginBottom = '6px';
       const checkbox = row.createEl('input', { type: 'checkbox' } as any) as HTMLInputElement;
-      checkbox.checked = true;
+      checkbox.checked = false;
       checkbox.onchange = () => { checked.set(index, checkbox.checked); };
       row.createEl('span', { text: folder.path });
     });
