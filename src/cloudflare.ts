@@ -2,46 +2,54 @@ import { Notice, requestUrl } from 'obsidian';
 
 export interface CloudflareConfig {
   accountId: string;
-  projectName: string;
+  triggerId: string;
   apiToken: string;
 }
 
 export async function triggerCloudflareDeployment(
   cf: CloudflareConfig,
+  commitHash: string,
   notice: Notice
 ): Promise<void> {
-  const base = `https://api.cloudflare.com/client/v4/accounts/${cf.accountId}/pages/projects/${cf.projectName}`;
   const headers = {
     Authorization: `Bearer ${cf.apiToken}`,
     'Content-Type': 'application/json',
   };
 
-  // Trigger new Pages deployment (rebuilds from latest git commit on production branch)
-  const deployRes = await requestUrl({ url: `${base}/deployments`, method: 'POST', headers });
+  // Trigger new Workers build
+  const deployRes = await requestUrl({
+    url: `https://api.cloudflare.com/client/v4/accounts/${cf.accountId}/builds/triggers/${cf.triggerId}/builds`,
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ branch: 'main', commit_hash: commitHash }),
+    throw: false,
+  });
   const deployData: any = deployRes.json;
   if (!deployData.success) {
-    console.error(deployRes)
-    console.error(deployData.errors)
-    throw new Error(deployData.errors?.[0]?.message ?? 'Cloudflare deploy trigger failed');
+    throw new Error(deployData.errors?.[0]?.message ?? 'Cloudflare build trigger failed');
   }
 
-  const deploymentId: string = deployData.result.id;
+  const buildUuid: string = deployData.result.build_uuid;
 
-  // Poll until done (~5s intervals, max ~10 min)
-  for (let i = 0; i < 120; i++) {
+  // Poll until done (~5s intervals, max 20 min)
+  for (let i = 0; i < 240; i++) {
     await new Promise((r) => setTimeout(r, 5000));
-    const statusRes = await requestUrl({ url: `${base}/deployments/${deploymentId}`, headers });
+    const statusRes = await requestUrl({
+      url: `https://api.cloudflare.com/client/v4/accounts/${cf.accountId}/builds/builds/${buildUuid}`,
+      headers,
+      throw: false,
+    });
     const statusData: any = statusRes.json;
-    const stage = statusData.result?.latest_stage;
-    const stageName: string = stage?.name ?? 'building';
-    const stageStatus: string = stage?.status ?? 'active';
+    const result = statusData.result;
+    const status: string = result?.status ?? 'queued';
+    const outcome: string | null = result?.build_outcome ?? null;
 
-    if (stageStatus === 'success') return;
-    if (stageStatus === 'failure' || stageStatus === 'canceled') {
-      throw new Error(`Cloudflare deployment ${stageStatus} at stage "${stageName}"`);
+    if (outcome === 'success') return;
+    if (outcome !== null) {
+      throw new Error(`Cloudflare build ${outcome} (status: ${status})`);
     }
-    notice.setMessage(`Cloudflare: deploying… (${stageName})`);
+    notice.setMessage(`Cloudflare: deploying… (${status})`);
   }
 
-  throw new Error('Cloudflare deployment timed out after 10 minutes');
+  throw new Error('Cloudflare deployment timed out after 20 minutes');
 }

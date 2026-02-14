@@ -293,7 +293,7 @@ export class SettingsManager {
         // Cloudflare sub-settings
         const cfFields: Array<{ key: keyof CloudflareConfig; label: string; password?: boolean }> = [
           { key: 'accountId', label: 'Cloudflare Account ID' },
-          { key: 'projectName', label: 'Cloudflare Project Name' },
+          { key: 'triggerId', label: 'Cloudflare Trigger ID' },
           { key: 'apiToken', label: 'Cloudflare API Token', password: true },
         ];
 
@@ -310,7 +310,7 @@ export class SettingsManager {
                   ...updated[index],
                   cloudflare: {
                     accountId: updated[index].cloudflare?.accountId ?? '',
-                    projectName: updated[index].cloudflare?.projectName ?? '',
+                    triggerId: updated[index].cloudflare?.triggerId ?? '',
                     apiToken: updated[index].cloudflare?.apiToken ?? '',
                     [key]: val,
                   },

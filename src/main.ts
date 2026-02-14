@@ -34,7 +34,7 @@ class PublishModal extends Modal {
     const { contentEl } = this;
     contentEl.createEl('h2', { text: 'Publish Changes' });
 
-    const checked = new Map<number, boolean>(this.folders.map((_, i) => [i, true]));
+    const checked = new Map<number, boolean>(this.folders.map((_, i) => [i, false]));
 
     this.folders.forEach((folder, index) => {
       const row = contentEl.createDiv({ cls: 'publish-modal-row' });
@@ -461,10 +461,11 @@ export default class KanbanPlugin extends Plugin {
 
           if (hasOrigin) {
             await run('git push origin main', repoPath);
-            if (folder.cloudflare?.accountId && folder.cloudflare.projectName && folder.cloudflare.apiToken) {
+            if (folder.cloudflare?.accountId && folder.cloudflare.triggerId && folder.cloudflare.apiToken) {
+              const commitHash = (await run('git rev-parse HEAD', repoPath)).trim();
               notice.setMessage(`${folder.path}: deploying to Cloudflare…`);
               try {
-                await triggerCloudflareDeployment(folder.cloudflare, notice);
+                await triggerCloudflareDeployment(folder.cloudflare, commitHash, notice);
                 notice.hide();
                 new Notice(`${folder.path}: pushed + deployed to Cloudflare.`);
               } catch (cfErr) {
@@ -485,7 +486,6 @@ export default class KanbanPlugin extends Plugin {
           notice.hide();
           const message = err instanceof Error ? err.message : String(err);
           new Notice(`Git push failed for ${folder.path}: ${message}`);
-          console.error(msg);
           console.error('[publishChanges]', err);
         }
       }
