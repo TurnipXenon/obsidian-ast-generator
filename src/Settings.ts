@@ -2044,6 +2044,6 @@ export class KanbanSettingsTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.addClass(c('board-settings-modal'));
 
-    this.settingsManager.constructUI(containerEl, t('Kanban Plugin'), false);
+    this.settingsManager.constructUI(containerEl, t('Turnip\'s Blog Publisher Plugin'), false);
   }
 }
