@@ -4,6 +4,7 @@ import { render, unmountComponentAtNode, useEffect, useState } from 'preact/comp
 
 import { createApp } from './DragDropApp';
 import { KanbanView, astIcon, kanbanViewType, publishIcon } from './KanbanView';
+import { triggerCloudflareDeployment } from './cloudflare';
 import { BaseFolderConfig, KanbanSettings, KanbanSettingsTab } from './Settings';
 import { StateManager } from './StateManager';
 import { DateSuggest, TimeSuggest } from './components/Editor/suggest';
@@ -467,8 +468,21 @@ export default class KanbanPlugin extends Plugin {
 
           if (hasOrigin) {
             await run('git push origin main', repoPath);
-            notice.hide();
-            new Notice(`${folder.path}: pushed successfully.`);
+            if (folder.cloudflare?.accountId && folder.cloudflare.projectName && folder.cloudflare.apiToken) {
+              notice.setMessage(`${folder.path}: deploying to Cloudflare…`);
+              try {
+                await triggerCloudflareDeployment(folder.cloudflare, notice);
+                notice.hide();
+                new Notice(`${folder.path}: pushed + deployed to Cloudflare.`);
+              } catch (cfErr) {
+                notice.hide();
+                const msg = cfErr instanceof Error ? cfErr.message : String(cfErr);
+                new Notice(`${folder.path}: pushed, but Cloudflare deploy failed: ${msg}`);
+              }
+            } else {
+              notice.hide();
+              new Notice(`${folder.path}: pushed successfully.`);
+            }
           } else {
             notice.hide();
             new Notice(`${folder.path}: committed (no remote origin set).`);

@@ -7,7 +7,6 @@ import {
   PluginSettingTab,
   Setting,
   TFile,
-  TextComponent,
   ToggleComponent,
 } from 'obsidian';
 
@@ -36,6 +35,7 @@ import {
 import { getParentWindow } from './dnd/util/getWindow';
 import { kebabize } from './helpers/util';
 import { t } from './lang/helpers';
+import { CloudflareConfig } from './cloudflare';
 import KanbanPlugin from './main';
 import { frontmatterKey } from './parsers/common';
 import { parseFragment, parseMarkdown } from './parsers/parseMarkdown';
@@ -58,6 +58,7 @@ export type KanbanFormat = 'basic' | 'board' | 'table' | 'list';
 export interface BaseFolderConfig {
   path: string;     // vault-relative path
   origin?: string;  // cached remote origin (read-only display, fetched at render time)
+  cloudflare?: CloudflareConfig;
 }
 
 export interface KanbanSettings {
@@ -104,10 +105,6 @@ export interface KanbanSettings {
 
   'base-folder'?: string;
   'base-folders'?: BaseFolderConfig[];
-  'project-name'?: string;
-  'repo-name'?: string;
-  'org-name'?: string;
-  'secret-key'?: string;
 }
 
 export interface KanbanViewSettings {
@@ -194,9 +191,6 @@ async function getGitOrigin(repoPath: string): Promise<string> {
   });
 }
 
-// todo(turnip): very dangerous syncing for secret key. figure out how to hide it
-const vercelStringFields = ['project-name', 'repo-name', 'org-name', 'secret-key'] as const;
-type StringOnlyFields = typeof vercelStringFields[number];
 
 export class SettingsManager {
   win: Window;
@@ -295,6 +289,37 @@ export class SettingsManager {
         } else {
           row.setDesc('Origin: not set');
         }
+
+        // Cloudflare sub-settings
+        const cfFields: Array<{ key: keyof CloudflareConfig; label: string; password?: boolean }> = [
+          { key: 'accountId', label: 'Cloudflare Account ID' },
+          { key: 'projectName', label: 'Cloudflare Project Name' },
+          { key: 'apiToken', label: 'Cloudflare API Token', password: true },
+        ];
+
+        cfFields.forEach(({ key, label, password }) => {
+          const cfSetting = new Setting(baseFoldersContainer)
+            .setName(label)
+            .addText((text) => {
+              if (password) text.inputEl.type = 'password';
+              text.setValue(folder.cloudflare?.[key] ?? '');
+              text.onChange((val) => {
+                const currentFolders = this.settings['base-folders'] ?? [];
+                const updated = [...currentFolders];
+                updated[index] = {
+                  ...updated[index],
+                  cloudflare: {
+                    accountId: updated[index].cloudflare?.accountId ?? '',
+                    projectName: updated[index].cloudflare?.projectName ?? '',
+                    apiToken: updated[index].cloudflare?.apiToken ?? '',
+                    [key]: val,
+                  },
+                };
+                saveFolders(updated);
+              });
+            });
+          cfSetting.settingEl.style.paddingLeft = '2em';
+        });
       });
 
       // Add row
@@ -334,49 +359,6 @@ export class SettingsManager {
       .setName('Generate metadata')
       .setDesc('Generate *.ast.json')
       .addButton((btn) => btn.setButtonText('Generate').onClick(this.generateAst));
-
-    const textFields = (fieldName: StringOnlyFields) => {
-      return (text: TextComponent) => {
-        const [value, globalValue] = this.getSetting(fieldName, local);
-
-        text.inputEl.setAttr('type', 'string');
-        text.inputEl.placeholder = fieldName;
-        text.inputEl.value = value ? value.toString() : '';
-
-        text.onChange((val: string) => {
-          if (val) {
-            text.inputEl.removeClass('error');
-
-            const params = {} as Record<StringOnlyFields, { $set: string }>;
-            params[fieldName] = {
-              $set: val,
-            };
-            this.applySettingsUpdate(params);
-
-            return;
-          }
-
-          this.applySettingsUpdate({
-            $unset: [fieldName],
-          });
-        });
-      };
-    };
-
-    new Setting(contentEl)
-      .setName(t('List width'))
-      .setDesc(t('Enter a number to set the list width in pixels.'))
-      .addText(textFields('org-name'));
-
-    new Setting(contentEl)
-      .setName(t('List width'))
-      .setDesc(t('Enter a number to set the list width in pixels.'))
-      .addText(textFields('project-name'));
-
-    new Setting(contentEl)
-      .setName(t('List width'))
-      .setDesc(t('Enter a number to set the list width in pixels.'))
-      .addText(textFields('repo-name'));
 
     new Setting(contentEl)
       .setName(t('Display card checkbox'))
