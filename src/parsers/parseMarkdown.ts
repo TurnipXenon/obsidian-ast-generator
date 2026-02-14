@@ -102,14 +102,14 @@ function getMdastExtensions(stateManager: StateManager) {
         stateManager.file.path
       );
 
-      const baseFolder = stateManager.getSetting('base-folder');
-      const baseFolderLen = baseFolder ? baseFolder.length + 1 : 0;
-
+      const baseFolders = (stateManager.getSetting('base-folders') as { path: string }[] | undefined) ?? [];
+      const matchingFolder = baseFolders.find(bf => file?.path.startsWith(bf.path + '/'));
+      const baseFolderLen = matchingFolder ? matchingFolder.path.length + 1 : 0;
       node.fileAccessor = {
         target: normalizedPath.root,
         isEmbed: true,
         stats: file?.stat,
-        basePath: file.path.substring(baseFolderLen),
+        basePath: file?.path.substring(baseFolderLen),
       } as FileAccessor;
     }),
     genericWrappedFromMarkdown('wikilink', (text, node) => {
@@ -122,12 +122,13 @@ function getMdastExtensions(stateManager: StateManager) {
         stateManager.file.path
       );
 
-      const baseFolder = stateManager.getSetting('base-folder');
-      const baseFolderLen = baseFolder ? baseFolder.length + 1 : 0;
+      const baseFolders = (stateManager.getSetting('base-folders') as { path: string }[] | undefined) ?? [];
+      const matchingFolder = baseFolders.find(bf => file?.path.startsWith(bf.path + '/'));
+      const baseFolderLen = matchingFolder ? matchingFolder.path.length + 1 : 0;
       node.fileAccessor = {
         target: normalizedPath.root,
         isEmbed: false,
-        basePath: file.path.substring(baseFolderLen),
+        basePath: file?.path.substring(baseFolderLen),
         // todo: get slug if page has slug
         slug: kebabize(file.basename)
       } as FileAccessor;

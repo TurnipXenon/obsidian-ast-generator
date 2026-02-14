@@ -1729,8 +1729,6 @@ export class SettingsManager {
 
     return Promise.all(
       vault.getMarkdownFiles().map(async (file) => {
-        // todo(turnip): improve
-        console.log(file.path);
         if (!file.path.startsWith(`${baseFolder}/`)) {
           return;
         }
@@ -1751,7 +1749,16 @@ export class SettingsManager {
           const fragment = parseFragment(stateManager, metadata.frontmatter.preview);
           const children = (fragment.children[0] as any).children;
           if (children) {
-            preview = children[0].fileAccessor.basePath;
+            const target: string | undefined = children[0].fileAccessor?.target;
+            if (target) {
+              const imageFile = metadataCache.getFirstLinkpathDest(target, file.path);
+              if (imageFile) {
+                const prefix = baseFolder + '/';
+                preview = imageFile.path.startsWith(prefix)
+                  ? imageFile.path.slice(prefix.length)
+                  : imageFile.path;
+              }
+            }
           }
         }
 
@@ -1799,6 +1806,7 @@ export class SettingsManager {
             if (tagCollection === undefined) {
               tagCollection = [];
             }
+            console.log('v3,', file.preview);
             tagCollection.push({
               path: file.path,
               slug: file.slug,
