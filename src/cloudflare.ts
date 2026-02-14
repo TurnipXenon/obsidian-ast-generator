@@ -4,6 +4,7 @@ export interface CloudflareConfig {
   accountId: string;
   triggerId: string;
   apiToken: string;
+  webRepoPath: string;
 }
 
 export async function triggerCloudflareDeployment(

@@ -461,8 +461,11 @@ export default class KanbanPlugin extends Plugin {
 
           if (hasOrigin) {
             await run('git push origin main', repoPath);
-            if (folder.cloudflare?.accountId && folder.cloudflare.triggerId && folder.cloudflare.apiToken) {
-              const commitHash = (await run('git rev-parse HEAD', repoPath)).trim();
+            if (folder.cloudflare?.accountId && folder.cloudflare.triggerId && folder.cloudflare.apiToken && folder.cloudflare.webRepoPath) {
+              const os = (window as any).require('os');
+              const webRepoPath = folder.cloudflare.webRepoPath.replace(/^~/, os.homedir());
+              await run('git fetch origin main:main --recurse-submodules=no --progress --prune', webRepoPath);
+              const commitHash = (await run('git rev-parse main', webRepoPath)).trim();
               notice.setMessage(`${folder.path}: deploying to Cloudflare…`);
               try {
                 await triggerCloudflareDeployment(folder.cloudflare, commitHash, notice);

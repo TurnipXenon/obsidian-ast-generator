@@ -295,6 +295,7 @@ export class SettingsManager {
           { key: 'accountId', label: 'Cloudflare Account ID' },
           { key: 'triggerId', label: 'Cloudflare Trigger ID' },
           { key: 'apiToken', label: 'Cloudflare API Token', password: true },
+          { key: 'webRepoPath', label: 'Web Repo Path (e.g. ~/Projects/Web/speenus)' },
         ];
 
         cfFields.forEach(({ key, label, password }) => {
@@ -312,6 +313,7 @@ export class SettingsManager {
                     accountId: updated[index].cloudflare?.accountId ?? '',
                     triggerId: updated[index].cloudflare?.triggerId ?? '',
                     apiToken: updated[index].cloudflare?.apiToken ?? '',
+                    webRepoPath: updated[index].cloudflare?.webRepoPath ?? '',
                     [key]: val,
                   },
                 };
