@@ -1,4 +1,11 @@
-                    GNU GENERAL PUBLIC LICENSE
+Copyright (C) Matthew Meyers (mgmeyers) — original Obsidian Kanban Plugin
+Copyright (C) 2026 TurnipXenon — modifications for blog publishing
+
+This work is a modified version of the Obsidian Kanban Plugin
+(https://github.com/mgmeyers/obsidian-kanban). Changes were made beginning at
+upstream commit d8eaecacc3703a57c16b400d3bea6428b0dbfaee.
+
+                   GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
  Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>

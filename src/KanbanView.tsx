@@ -27,6 +27,7 @@ import { frontmatterKey } from './parsers/common';
 
 export const kanbanViewType = 'kanban';
 export const astIcon = 'lucide-network';
+export const publishIcon = 'lucide-send';
 
 export class KanbanView extends TextFileView implements HoverParent {
   plugin: KanbanPlugin;

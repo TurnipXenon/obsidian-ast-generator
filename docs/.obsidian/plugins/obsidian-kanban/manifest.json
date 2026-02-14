@@ -1,10 +1,10 @@
 {
-  "id": "obsidian-kanban",
-  "name": "Kanban",
+  "id": "turnip-blog-publisher",
+  "name": "Turnip's Blog Publisher Plugin",
   "version": "1.5.2",
   "minAppVersion": "1.0.0",
-  "description": "Create markdown-backed Kanban boards in Obsidian.",
-  "author": "mgmeyers",
-  "authorUrl": "https://github.com/mgmeyers/obsidian-kanban",
+  "description": "Personally tailored plugin for blog publishing and management in Obsidian",
+  "author": "TurnipXenon",
+  "authorUrl": "https://github.com/TurnipXenon/obsidian-ast-generator",
   "isDesktopOnly": false
 }

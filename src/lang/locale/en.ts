@@ -3,6 +3,7 @@
 const en = {
   // main.ts
   'Generate AST': 'Generate AST',
+  'Publish changes': 'Publish changes',
   'Open as kanban board': 'Open as kanban board',
   'Create new board': 'Create new board',
   'Archive completed cards in active board': 'Archive completed cards in active board',
@@ -45,9 +46,7 @@ const en = {
 
   // Settings.ts
   'Base folder': 'Base folder',
-  '2nd optional folder': '2nd optional folder',
   'Base folder where the plugin will scan markdown files to generate AST json\'s for': 'Base folder where the plugin will scan markdown files to generate AST json\'s for',
-  '2nd folder where the plugin will scan markdown files to generate AST json\'s for': '2nd folder where the plugin will scan markdown files to generate AST json\'s for',
   'New line trigger': 'New line trigger',
   'Select whether Enter or Shift+Enter creates a new line. The opposite of what you choose will create and complete editing of cards and lists.':
     'Select whether Enter or Shift+Enter creates a new line. The opposite of what you choose will create and complete editing of cards and lists.',
@@ -136,6 +135,7 @@ const en = {
     'This will be used to separate the archived date/time from the title',
   'Archive date/time format': 'Archive date/time format',
   'Kanban Plugin': 'Kanban Plugin',
+  'Turnip\'s Blog Publisher Plugin': 'Turnip\'s Blog Publisher Plugin',
   'Tag click action': 'Tag click action',
   'Search Kanban Board': 'Search Kanban Board',
   'Search Obsidian Vault': 'Search Obsidian Vault',
