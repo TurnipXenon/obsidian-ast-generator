@@ -1,4 +1,4 @@
-import { Notice } from 'obsidian';
+import { Notice, requestUrl } from 'obsidian';
 
 export interface CloudflareConfig {
   accountId: string;
@@ -17,9 +17,11 @@ export async function triggerCloudflareDeployment(
   };
 
   // Trigger new Pages deployment (rebuilds from latest git commit on production branch)
-  const deployRes = await fetch(`${base}/deployments`, { method: 'POST', headers });
-  const deployData: any = await deployRes.json();
+  const deployRes = await requestUrl({ url: `${base}/deployments`, method: 'POST', headers });
+  const deployData: any = deployRes.json;
   if (!deployData.success) {
+    console.error(deployRes)
+    console.error(deployData.errors)
     throw new Error(deployData.errors?.[0]?.message ?? 'Cloudflare deploy trigger failed');
   }
 
@@ -28,8 +30,8 @@ export async function triggerCloudflareDeployment(
   // Poll until done (~5s intervals, max ~10 min)
   for (let i = 0; i < 120; i++) {
     await new Promise((r) => setTimeout(r, 5000));
-    const statusRes = await fetch(`${base}/deployments/${deploymentId}`, { headers });
-    const statusData: any = await statusRes.json();
+    const statusRes = await requestUrl({ url: `${base}/deployments/${deploymentId}`, headers });
+    const statusData: any = statusRes.json;
     const stage = statusData.result?.latest_stage;
     const stageName: string = stage?.name ?? 'building';
     const stageStatus: string = stage?.status ?? 'active';

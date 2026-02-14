@@ -446,17 +446,10 @@ export default class KanbanPlugin extends Plugin {
         try {
           await run('git add -A', repoPath);
 
-          try {
+          const statusOut = await run('git status --porcelain', repoPath);
+          if (statusOut.trim()) {
             const timestamp = new Date().toISOString();
             await run(`git commit -m "content: auto-publish ${timestamp}"`, repoPath);
-          } catch (commitErr) {
-            const msg = commitErr instanceof Error ? commitErr.message : String(commitErr);
-            if (!msg.includes('nothing to commit')) {
-              notice.hide();
-              new Notice(`Git commit failed for ${folder.path}: ${msg}`);
-              console.error('[publishChanges] commit', commitErr);
-              continue;
-            }
           }
 
           let hasOrigin = true;
@@ -477,6 +470,7 @@ export default class KanbanPlugin extends Plugin {
               } catch (cfErr) {
                 notice.hide();
                 const msg = cfErr instanceof Error ? cfErr.message : String(cfErr);
+                console.error(msg);
                 new Notice(`${folder.path}: pushed, but Cloudflare deploy failed: ${msg}`);
               }
             } else {
@@ -491,6 +485,7 @@ export default class KanbanPlugin extends Plugin {
           notice.hide();
           const message = err instanceof Error ? err.message : String(err);
           new Notice(`Git push failed for ${folder.path}: ${message}`);
+          console.error(msg);
           console.error('[publishChanges]', err);
         }
       }
