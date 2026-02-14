@@ -1,5 +1,5 @@
 import { around } from 'monkey-around';
-import { MarkdownView, Platform, Plugin, TFile, TFolder, ViewState, WorkspaceLeaf, debounce } from 'obsidian';
+import { MarkdownView, Notice, Platform, Plugin, TFile, TFolder, ViewState, WorkspaceLeaf, debounce } from 'obsidian';
 import { render, unmountComponentAtNode, useEffect, useState } from 'preact/compat';
 
 import { createApp } from './DragDropApp';
@@ -11,7 +11,6 @@ import { getParentWindow } from './dnd/util/getWindow';
 import { hasFrontmatterKey } from './helpers';
 import { t } from './lang/helpers';
 import { basicFrontmatter, frontmatterKey } from './parsers/common';
-import { publishToVercel } from './vercelAutoDeploy';
 
 
 interface WindowRegistry {
@@ -324,10 +323,47 @@ export default class KanbanPlugin extends Plugin {
     this.settingsTab.settingsManager.generateAst();
   }
 
-  async publishChanges(folder?: TFolder) {
-    console.log('publishing changes...')
-    // todo: push changes to git repo
-    // todo: rebuild cloudflare worker?
+  async publishChanges(_folder?: TFolder) {
+    const baseFolder = this.settings['base-folder'];
+
+    if (!baseFolder) {
+      new Notice('Error: Base folder not configured in plugin settings.');
+      return;
+    }
+
+    // Obsidian's FileSystemAdapter exposes the vault root as an absolute path.
+    // Combining it with base-folder gives us the git repo root on disk.
+    const adapter = this.app.vault.adapter as any;
+    const repoPath = `${adapter.basePath}/${baseFolder}`;
+
+    const notice = new Notice('Pushing changes to git…', 0);
+
+    try {
+      const { exec } = (window as any).require('child_process');
+
+      const run = (cmd: string): Promise<string> =>
+        new Promise((resolve, reject) => {
+          exec(cmd, { cwd: repoPath }, (err: Error | null, stdout: string, stderr: string) => {
+            if (err) reject(new Error(stderr || err.message));
+            else resolve(stdout);
+          });
+        });
+
+      await run('git add -A');
+
+      const timestamp = new Date().toISOString();
+      await run(`git commit -m "content: auto-publish ${timestamp}"`);
+
+      await run('git push origin main');
+
+      notice.hide();
+      new Notice('Changes pushed to git successfully.');
+    } catch (err) {
+      notice.hide();
+      const message = err instanceof Error ? err.message : String(err);
+      new Notice(`Git push failed: ${message}`);
+      console.error('[publishChanges]', err);
+    }
   }
 
   registerEvents() {
