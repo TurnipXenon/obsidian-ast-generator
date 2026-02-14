@@ -61,6 +61,40 @@ class PublishModal extends Modal {
   }
 }
 
+class StagingModal extends Modal {
+  private file: TFile;
+  private onDraft: () => void;
+  private onPublish: () => void;
+
+  constructor(app: any, file: TFile, onDraft: () => void, onPublish: () => void) {
+    super(app);
+    this.file = file;
+    this.onDraft = onDraft;
+    this.onPublish = onPublish;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl('h2', { text: 'Save as…' });
+    contentEl.createEl('p', { text: this.file.name });
+
+    const btnRow = contentEl.createDiv();
+    btnRow.style.display = 'flex';
+    btnRow.style.gap = '8px';
+    btnRow.style.marginTop = '1em';
+
+    const draftBtn = btnRow.createEl('button', { text: 'Draft' });
+    draftBtn.onclick = () => { this.close(); this.onDraft(); };
+
+    const publishBtn = btnRow.createEl('button', { text: 'Publish' });
+    publishBtn.onclick = () => { this.close(); this.onPublish(); };
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
 function getEditorClass(app: any) {
   const md = app.embedRegistry.embedByExtension.md(
     { app: app, containerEl: createDiv(), state: {} },
@@ -185,8 +219,21 @@ export default class KanbanPlugin extends Plugin {
     this.registerDomEvent(window, 'keyup', this.handleShift);
 
     this.addRibbonIcon(astIcon, t('Generate AST'), () => {
-      console.log('Working here 2')
-      this.newKanban();
+      const file = this.app.workspace.getActiveFile();
+      if (!file || file.extension !== 'md') {
+        new Notice('Open a markdown file first');
+        return;
+      }
+      if (file.name.endsWith('.draft.md') || file.name.endsWith('.published.md')) {
+        new Notice('Cannot generate AST for snapshot files');
+        return;
+      }
+      new StagingModal(
+        this.app,
+        file,
+        () => this.settingsTab.settingsManager.saveAsDraft(file),
+        () => this.settingsTab.settingsManager.saveAsPublished(file),
+      ).open();
     });
 
     this.addRibbonIcon(publishIcon, t('Publish changes'), () => {
