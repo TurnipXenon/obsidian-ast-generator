@@ -1,4 +1,4 @@
-# Obsidian Blog Publisher
+# Turnip's Blog Publisher Plugin
 
 A fork of the [Obsidian Kanban Plugin](https://github.com/mgmeyers/obsidian-kanban) retrofitted as a personal blog publishing tool.
 
