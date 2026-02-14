@@ -1,10 +1,10 @@
 import { around } from 'monkey-around';
-import { MarkdownView, Notice, Platform, Plugin, TFile, TFolder, ViewState, WorkspaceLeaf, debounce } from 'obsidian';
+import { MarkdownView, Modal, Notice, Platform, Plugin, TFile, TFolder, ViewState, WorkspaceLeaf, debounce } from 'obsidian';
 import { render, unmountComponentAtNode, useEffect, useState } from 'preact/compat';
 
 import { createApp } from './DragDropApp';
 import { KanbanView, astIcon, kanbanViewType, publishIcon } from './KanbanView';
-import { KanbanSettings, KanbanSettingsTab } from './Settings';
+import { BaseFolderConfig, KanbanSettings, KanbanSettingsTab } from './Settings';
 import { StateManager } from './StateManager';
 import { DateSuggest, TimeSuggest } from './components/Editor/suggest';
 import { getParentWindow } from './dnd/util/getWindow';
@@ -17,6 +17,48 @@ interface WindowRegistry {
   viewMap: Map<string, KanbanView>;
   viewStateReceivers: Array<(views: KanbanView[]) => void>;
   appRoot: HTMLElement;
+}
+
+class PublishModal extends Modal {
+  private folders: BaseFolderConfig[];
+  private onSubmit: (selected: BaseFolderConfig[]) => void;
+
+  constructor(app: any, folders: BaseFolderConfig[], onSubmit: (selected: BaseFolderConfig[]) => void) {
+    super(app);
+    this.folders = folders;
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl('h2', { text: 'Publish Changes' });
+
+    const checked = new Map<number, boolean>(this.folders.map((_, i) => [i, true]));
+
+    this.folders.forEach((folder, index) => {
+      const row = contentEl.createDiv({ cls: 'publish-modal-row' });
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.gap = '8px';
+      row.style.marginBottom = '6px';
+      const checkbox = row.createEl('input', { type: 'checkbox' } as any) as HTMLInputElement;
+      checkbox.checked = true;
+      checkbox.onchange = () => { checked.set(index, checkbox.checked); };
+      row.createEl('span', { text: folder.path });
+    });
+
+    const btn = contentEl.createEl('button', { text: 'Push selected' });
+    btn.style.marginTop = '1em';
+    btn.onclick = () => {
+      const selected = this.folders.filter((_, i) => checked.get(i) !== false);
+      this.close();
+      this.onSubmit(selected);
+    };
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
 }
 
 function getEditorClass(app: any) {
@@ -89,6 +131,12 @@ export default class KanbanPlugin extends Plugin {
 
   async onload() {
     await this.loadSettings();
+
+    // Migrate legacy single base-folder to base-folders array
+    if (!this.settings['base-folders'] && this.settings['base-folder']) {
+      this.settings['base-folders'] = [{ path: this.settings['base-folder'] }];
+      await this.saveSettings();
+    }
 
     this.MarkdownEditor = getEditorClass(this.app);
 
@@ -324,46 +372,68 @@ export default class KanbanPlugin extends Plugin {
   }
 
   async publishChanges(_folder?: TFolder) {
-    const baseFolder = this.settings['base-folder'];
+    const baseFolders = this.settings['base-folders'] ?? [];
 
-    if (!baseFolder) {
-      new Notice('Error: Base folder not configured in plugin settings.');
+    if (baseFolders.length === 0) {
+      new Notice('Error: No base folders configured.');
       return;
     }
 
-    // Obsidian's FileSystemAdapter exposes the vault root as an absolute path.
-    // Combining it with base-folder gives us the git repo root on disk.
-    const adapter = this.app.vault.adapter as any;
-    const repoPath = `${adapter.basePath}/${baseFolder}`;
-
-    const notice = new Notice('Pushing changes to git…', 0);
-
-    try {
+    new PublishModal(this.app, baseFolders, async (selected) => {
+      const adapter = this.app.vault.adapter as any;
       const { exec } = (window as any).require('child_process');
 
-      const run = (cmd: string): Promise<string> =>
+      const run = (cmd: string, cwd: string): Promise<string> =>
         new Promise((resolve, reject) => {
-          exec(cmd, { cwd: repoPath }, (err: Error | null, stdout: string, stderr: string) => {
+          exec(cmd, { cwd }, (err: Error | null, stdout: string, stderr: string) => {
             if (err) reject(new Error(stderr || err.message));
             else resolve(stdout);
           });
         });
 
-      await run('git add -A');
+      for (const folder of selected) {
+        const repoPath = `${adapter.basePath}/${folder.path}`;
+        const notice = new Notice(`Pushing ${folder.path}…`, 0);
 
-      const timestamp = new Date().toISOString();
-      await run(`git commit -m "content: auto-publish ${timestamp}"`);
+        try {
+          await run('git add -A', repoPath);
 
-      await run('git push origin main');
+          try {
+            const timestamp = new Date().toISOString();
+            await run(`git commit -m "content: auto-publish ${timestamp}"`, repoPath);
+          } catch (commitErr) {
+            const msg = commitErr instanceof Error ? commitErr.message : String(commitErr);
+            if (!msg.includes('nothing to commit')) {
+              notice.hide();
+              new Notice(`Git commit failed for ${folder.path}: ${msg}`);
+              console.error('[publishChanges] commit', commitErr);
+              continue;
+            }
+          }
 
-      notice.hide();
-      new Notice('Changes pushed to git successfully.');
-    } catch (err) {
-      notice.hide();
-      const message = err instanceof Error ? err.message : String(err);
-      new Notice(`Git push failed: ${message}`);
-      console.error('[publishChanges]', err);
-    }
+          let hasOrigin = true;
+          try {
+            await run('git remote get-url origin', repoPath);
+          } catch {
+            hasOrigin = false;
+          }
+
+          if (hasOrigin) {
+            await run('git push origin main', repoPath);
+            notice.hide();
+            new Notice(`${folder.path}: pushed successfully.`);
+          } else {
+            notice.hide();
+            new Notice(`${folder.path}: committed (no remote origin set).`);
+          }
+        } catch (err) {
+          notice.hide();
+          const message = err instanceof Error ? err.message : String(err);
+          new Notice(`Git push failed for ${folder.path}: ${message}`);
+          console.error('[publishChanges]', err);
+        }
+      }
+    }).open();
   }
 
   registerEvents() {

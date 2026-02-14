@@ -55,6 +55,11 @@ const numberRegEx = /^\d+(?:\.\d+)?$/;
 
 export type KanbanFormat = 'basic' | 'board' | 'table' | 'list';
 
+export interface BaseFolderConfig {
+  path: string;     // vault-relative path
+  origin?: string;  // cached remote origin (read-only display, fetched at render time)
+}
+
 export interface KanbanSettings {
   [frontmatterKey]?: KanbanFormat;
   'append-archive-date'?: boolean;
@@ -98,6 +103,7 @@ export interface KanbanSettings {
   'time-trigger'?: string;
 
   'base-folder'?: string;
+  'base-folders'?: BaseFolderConfig[];
   'project-name'?: string;
   'repo-name'?: string;
   'org-name'?: string;
@@ -179,6 +185,15 @@ class ExportedFiles extends TFile implements PathSlug {
   preview: string;
 }
 
+async function getGitOrigin(repoPath: string): Promise<string> {
+  return new Promise((resolve) => {
+    const { exec } = (window as any).require('child_process');
+    exec('git remote get-url origin', { cwd: repoPath }, (err: any, stdout: string) => {
+      resolve(err ? 'not set' : stdout.trim());
+    });
+  });
+}
+
 // todo(turnip): very dangerous syncing for secret key. figure out how to hide it
 const vercelStringFields = ['project-name', 'repo-name', 'org-name', 'secret-key'] as const;
 type StringOnlyFields = typeof vercelStringFields[number];
@@ -235,20 +250,85 @@ export class SettingsManager {
       });
     }
 
-    new Setting(contentEl)
-      .setName(t('Base folder'))
-      .setDesc(
-        t("Base folder where the plugin will scan markdown files to generate AST json's for")
-      )
-      .then(
-        createSearchSelect({
-          choices: vaultFolders,
-          key: 'base-folder',
-          local,
-          placeHolderStr: t('Default folder'),
-          manager: this,
+    contentEl.createEl('h4', { text: 'Base Folders' });
+    const baseFoldersContainer = contentEl.createDiv();
+
+    const saveFolders = (newFolders: BaseFolderConfig[]) => {
+      this.settings['base-folders'] = newFolders;
+      this.config.onSettingsChange(this.settings);
+    };
+
+    const renderBaseFolders = () => {
+      baseFoldersContainer.empty();
+      const baseFolders: BaseFolderConfig[] = this.settings['base-folders'] ?? [];
+      const adapter = this.app.vault.adapter as any;
+
+      baseFolders.forEach((folder, index) => {
+        const row = new Setting(baseFoldersContainer)
+          .setName(folder.path || `Folder ${index + 1}`)
+          .setDesc('Origin: loading…')
+          .addDropdown((dropdown) => {
+            dropdown.addOption('', '— select folder —');
+            vaultFolders.forEach((f) => dropdown.addOption(f.value, f.label));
+            dropdown.setValue(folder.path ?? '');
+            dropdown.onChange((value) => {
+              const updated = [...baseFolders];
+              updated[index] = { ...updated[index], path: value };
+              saveFolders(updated);
+              row.setName(value || `Folder ${index + 1}`);
+            });
+          })
+          .addExtraButton((btn) => {
+            btn.setIcon('cross').setTooltip('Remove').onClick(() => {
+              const updated = [...baseFolders];
+              updated.splice(index, 1);
+              saveFolders(updated);
+              renderBaseFolders();
+            });
+          });
+
+        if (folder.path && adapter?.basePath) {
+          const absPath = `${adapter.basePath}/${folder.path}`;
+          getGitOrigin(absPath).then((origin) => {
+            row.setDesc(`Origin: ${origin}`);
+          });
+        } else {
+          row.setDesc('Origin: not set');
+        }
+      });
+
+      // Add row
+      let pendingPath = '';
+      new Setting(baseFoldersContainer)
+        .setName('Add base folder')
+        .addDropdown((dropdown) => {
+          dropdown.addOption('', '— select folder —');
+          vaultFolders.forEach((f) => dropdown.addOption(f.value, f.label));
+          dropdown.onChange((value) => {
+            pendingPath = value;
+          });
         })
-      );
+        .addButton((btn) => {
+          btn.setButtonText('Add').onClick(() => {
+            if (!pendingPath) return;
+
+            if (adapter?.basePath) {
+              const { existsSync, writeFileSync } = (window as any).require('fs');
+              const absPath = `${adapter.basePath}/${pendingPath}`;
+              const gitignorePath = `${absPath}/.gitignore`;
+              if (!existsSync(gitignorePath)) {
+                writeFileSync(gitignorePath, `*.md\n**/*.md\n.idea/\n`, 'utf8');
+              }
+            }
+
+            const updated = [...(this.settings['base-folders'] ?? []), { path: pendingPath }];
+            saveFolders(updated);
+            renderBaseFolders();
+          });
+        });
+    };
+
+    renderBaseFolders();
 
     new Setting(contentEl)
       .setName('Generate metadata')
@@ -1624,16 +1704,19 @@ export class SettingsManager {
       }
     });
 
-    const baseFolder = this.getSetting('base-folder', true)[0] as string | undefined;
+    const baseFolders = (this.settings['base-folders'] ?? []).map((b) => b.path);
+    if (baseFolders.length === 0) {
+      const legacy = this.getSetting('base-folder', true)[0] as string | undefined;
+      if (legacy) baseFolders.push(legacy);
+    }
 
     Promise.all(promises)
-      .then(() => this._generateAst(baseFolder))
+      .then(() => Promise.all(baseFolders.map((f) => this._generateAst(f))))
       .catch((err) => {
         new Notice('Error generating AST JSONs');
         console.error(err);
       })
       .finally(() => {
-        // list of everything that needs to published?
         scanningMessage.hide();
       });
   }
