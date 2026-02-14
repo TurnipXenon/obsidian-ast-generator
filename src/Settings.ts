@@ -191,18 +191,6 @@ export class SettingsManager {
 
     contentEl.createEl('h3', { text: heading });
 
-    if (local) {
-      contentEl.createEl('p', {
-        text: t('These settings will take precedence over the default Kanban board settings.'),
-      });
-    } else {
-      contentEl.createEl('p', {
-        text: t(
-          'Set the default Kanban board settings. Settings can be overridden on a board-by-board basis.'
-        ),
-      });
-    }
-
     contentEl.createEl('h4', { text: 'Base Folders' });
     const baseFoldersContainer = contentEl.createDiv();
 
