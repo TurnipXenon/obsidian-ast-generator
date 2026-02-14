@@ -326,7 +326,8 @@ export default class KanbanPlugin extends Plugin {
 
   async publishChanges(folder?: TFolder) {
     console.log('publishing changes...')
-    publishToVercel()
+    // todo: push changes to git repo
+    // todo: rebuild cloudflare worker?
   }
 
   registerEvents() {
