@@ -659,6 +659,28 @@ export default class KanbanPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: 'save-as-draft',
+      name: 'Save active file as draft',
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        if (!file || !file.extension.match(/^md$/)) return false;
+        if (checking) return true;
+        this.settingsTab.settingsManager.saveAsDraft(file);
+      },
+    });
+
+    this.addCommand({
+      id: 'save-as-published',
+      name: 'Save active file as published',
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        if (!file || !file.extension.match(/^md$/)) return false;
+        if (checking) return true;
+        this.settingsTab.settingsManager.saveAsPublished(file);
+      },
+    });
+
+    this.addCommand({
       id: 'archive-completed-cards',
       name: t('Archive completed cards in active board'),
       checkCallback: (checking) => {

@@ -1699,7 +1699,7 @@ export class SettingsManager {
     const allFiles = vault.getFiles();
     const promises: Promise<void>[] = [];
     allFiles.forEach((file) => {
-      if (file.name.endsWith('.ast.json')) {
+      if (file.name.endsWith('.ast.json') && !file.name.endsWith('.draft.ast.json')) {
         promises.push(vault.delete(file));
       }
     });
@@ -1732,6 +1732,8 @@ export class SettingsManager {
         if (!file.path.startsWith(`${baseFolder}/`)) {
           return;
         }
+
+        if (file.name.endsWith('.draft.md') || file.name.endsWith('.published.md')) return;
 
         const metadata = metadataCache.getFileCache(file);
         const readFile = await vault.read(file);
@@ -1832,6 +1834,186 @@ export class SettingsManager {
         return vault.create(metadataPath, JSON.stringify(mainMeta, undefined, 2));
       })
       .then(() => new Notice('AST JSONs generated'));
+  }
+
+  private getBaseFolderForFile(file: TFile): string | null {
+    const baseFolders = (this.settings['base-folders'] ?? []).map((b) => b.path);
+    if (baseFolders.length === 0) {
+      const legacy = this.getSetting('base-folder', true)[0] as string | undefined;
+      if (legacy) baseFolders.push(legacy);
+    }
+    return baseFolders.find((f) => file.path.startsWith(`${f}/`)) ?? null;
+  }
+
+  private async _generateAstForFile(
+    file: TFile,
+    baseFolder: string
+  ): Promise<{ jsonFile: object; readFile: string }> {
+    const { vault, metadataCache } = this.app;
+    const metadata = metadataCache.getFileCache(file);
+    const readFile = await vault.read(file);
+    const stateManager = new StateManager(this.app, this);
+    stateManager.file = file;
+    const ast = parseMarkdown(stateManager, readFile);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { vault: _v, parent, saving, deleted, ...wantedProps } = file as any;
+    const startLen = baseFolder.length > 0 ? baseFolder.length + 1 : 0;
+    const savePath = `${file.path.substring(0, file.path.length - 3)}.ast.json`;
+    wantedProps.path = savePath.substring(startLen);
+
+    let preview = undefined;
+    if (metadata?.frontmatter?.preview) {
+      const fragment = parseFragment(stateManager, metadata.frontmatter.preview);
+      const children = (fragment.children[0] as any).children;
+      if (children) {
+        const target: string | undefined = children[0].fileAccessor?.target;
+        if (target) {
+          const imageFile = metadataCache.getFirstLinkpathDest(target, file.path);
+          if (imageFile) {
+            const prefix = baseFolder + '/';
+            preview = imageFile.path.startsWith(prefix)
+              ? imageFile.path.slice(prefix.length)
+              : imageFile.path;
+          }
+        }
+      }
+    }
+
+    const fileData = {
+      ...wantedProps,
+      ...ast.frontmatter,
+      tags: ast.frontmatter?.tags ?? [],
+      slug: ast.frontmatter?.slug ?? kebabize(file.basename),
+      preview,
+    };
+
+    return { jsonFile: { ...fileData, ast }, readFile };
+  }
+
+  async saveAsDraft(file: TFile) {
+    const baseFolder = this.getBaseFolderForFile(file);
+    if (!baseFolder) {
+      new Notice('File is not inside a configured base folder.');
+      return;
+    }
+    const notice = new Notice('Saving as draft…', 0);
+    const { vault } = this.app;
+
+    try {
+      const { jsonFile, readFile } = await this._generateAstForFile(file, baseFolder);
+      const stem = file.path.substring(0, file.path.length - 3);
+
+      const draftAstPath = `${stem}.draft.ast.json`;
+      const draftAstFile = vault.getFileByPath(draftAstPath);
+      if (draftAstFile) {
+        await vault.modify(draftAstFile, JSON.stringify(jsonFile, (k, v) => (['position', 'extension'].includes(k) ? undefined : v), 2));
+      } else {
+        await vault.create(draftAstPath, JSON.stringify(jsonFile, (k, v) => (['position', 'extension'].includes(k) ? undefined : v), 2));
+      }
+
+      const draftMdPath = `${stem}.draft.md`;
+      const draftMdFile = vault.getFileByPath(draftMdPath);
+      if (draftMdFile) {
+        await vault.modify(draftMdFile, readFile);
+      } else {
+        await vault.create(draftMdPath, readFile);
+      }
+
+      notice.hide();
+      new Notice(`Saved as draft: ${file.basename}`);
+    } catch (err) {
+      notice.hide();
+      new Notice('Error saving as draft.');
+      console.error(err);
+    }
+  }
+
+  async saveAsPublished(file: TFile) {
+    const baseFolder = this.getBaseFolderForFile(file);
+    if (!baseFolder) {
+      new Notice('File is not inside a configured base folder.');
+      return;
+    }
+    const notice = new Notice('Saving as published…', 0);
+    const { vault } = this.app;
+
+    try {
+      const { jsonFile, readFile } = await this._generateAstForFile(file, baseFolder);
+      const stem = file.path.substring(0, file.path.length - 3);
+      const startLen = baseFolder.length > 0 ? baseFolder.length + 1 : 0;
+
+      const astPath = `${stem}.ast.json`;
+      const astFile = vault.getFileByPath(astPath);
+      const astJson = JSON.stringify(jsonFile, (k, v) => (['position', 'extension'].includes(k) ? undefined : v), 2);
+      if (astFile) {
+        await vault.modify(astFile, astJson);
+      } else {
+        await vault.create(astPath, astJson);
+      }
+
+      const publishedMdPath = `${stem}.published.md`;
+      const publishedMdFile = vault.getFileByPath(publishedMdPath);
+      if (publishedMdFile) {
+        await vault.modify(publishedMdFile, readFile);
+      } else {
+        await vault.create(publishedMdPath, readFile);
+      }
+
+      // Update main.meta.json
+      const metadataPath = `${baseFolder}/main.meta.json`;
+      const { metadataCache } = this.app;
+      const fileData: any = { ...(jsonFile as any) };
+      delete fileData.ast;
+      fileData.path = astPath.substring(startLen);
+
+      let existingMeta: { files: any[]; tags: any[] } = { files: [], tags: [] };
+      const metaFile = vault.getFileByPath(metadataPath);
+      if (metaFile) {
+        try {
+          existingMeta = JSON.parse(await vault.read(metaFile));
+        } catch {
+          // use default
+        }
+      }
+
+      const existingIdx = existingMeta.files.findIndex((f: any) => f.path === fileData.path);
+      if (existingIdx >= 0) {
+        existingMeta.files[existingIdx] = fileData;
+      } else {
+        existingMeta.files.push(fileData);
+      }
+
+      existingMeta.files.sort((a: any, b: any) => b.stat.mtime - a.stat.mtime);
+
+      const tagMap = new Map<string, PathSlug[]>();
+      existingMeta.files.forEach((f: any) => {
+        (f.tags ?? []).forEach((tag: string) => {
+          let col = tagMap.get(tag);
+          if (!col) col = [];
+          col.push({ path: f.path, slug: f.slug, preview: f.preview });
+          tagMap.set(tag, col);
+        });
+      });
+
+      const tags: { name: string; entries: PathSlug[] }[] = [];
+      tagMap.forEach((value, key) => tags.push({ name: key, entries: value }));
+
+      const newMeta = { files: existingMeta.files, tags };
+      const newMetaJson = JSON.stringify(newMeta, undefined, 2);
+
+      if (metaFile) {
+        await vault.modify(metaFile, newMetaJson);
+      } else {
+        await vault.create(metadataPath, newMetaJson);
+      }
+
+      notice.hide();
+      new Notice(`Saved as published: ${file.basename}`);
+    } catch (err) {
+      notice.hide();
+      new Notice('Error saving as published.');
+      console.error(err);
+    }
   }
 }
 
