@@ -6,6 +6,8 @@ A fork of the [Obsidian Kanban Plugin](https://github.com/mgmeyers/obsidian-kanb
 
 Published markdown to a repo that my personal website parses. More details on that since I need to separate that project.
 
+![showcase.png](docs/showcase.png)
+
 ## Fork baseline
 
 Changes relative to upstream Obsidian Kanban begin at commit `d8eaecacc3703a57c16b400d3bea6428b0dbfaee`.
